@@ -1,13 +1,6 @@
-/**
- * src/pages/contact.page.ts
- *
- * ContactFormPage provides methods for inspecting and interacting with
- * contact forms.  It explicitly does NOT submit forms to avoid sending
- * spam messages to real company inboxes.
- */
-
-import { type Locator } from '@playwright/test';
-import { BasePage } from '@pages/base.page';
+import { type Page, type Locator } from '@playwright/test';
+import { BasePage } from './base.page';
+import type { SiteConfig } from '@config/site-config.types';
 
 export interface FormFieldInfo {
   name: string;
@@ -16,45 +9,88 @@ export interface FormFieldInfo {
 }
 
 export class ContactFormPage extends BasePage {
-  // ── Form discovery ───────────────────────────────────────────────────────────
+  // ── Specific field locators (naviam.io contact form) ─────────────────────────
+  readonly firstNameInput: Locator;
+  readonly lastNameInput: Locator;
+  readonly emailInput: Locator;
+  readonly companyInput: Locator;
+  readonly jobTitleInput: Locator;
+  readonly countrySelect: Locator;
+  readonly citySelect: Locator;
+  readonly industrySelect: Locator;
+  readonly interestSelect: Locator;
+  readonly commentsTextarea: Locator;
+  readonly consentCheckbox: Locator;
+  readonly submitButton: Locator;
+  readonly successMessage: Locator;
+  readonly errorMessage: Locator;
 
-  /**
-   * Find the primary contact form on the current page.
-   * Returns null if no form is found.
-   *
-   * Strategy (in priority order):
-   *  1. <form> with action containing "contact"
-   *  2. <form> containing an email input
-   *  3. First <form> on the page
-   */
+  constructor(page: Page, config: SiteConfig) {
+    super(page, config);
+
+    this.firstNameInput = page.locator(
+      'input[name*="first" i], input[placeholder*="first name" i], input[autocomplete="given-name"]'
+    ).first();
+    this.lastNameInput = page.locator(
+      'input[name*="last" i], input[placeholder*="last name" i], input[autocomplete="family-name"]'
+    ).first();
+    this.emailInput = page.locator(
+      'input[type="email"], input[name*="email" i], input[placeholder*="email" i]'
+    ).first();
+    this.companyInput = page.locator(
+      'input[name*="company" i], input[placeholder*="company" i], input[name*="organization" i]'
+    ).first();
+    this.jobTitleInput = page.locator(
+      'input[name*="job" i], input[name*="title" i], input[placeholder*="job title" i]'
+    ).first();
+    this.countrySelect = page.locator(
+      'select[name*="country" i], select[id*="country" i]'
+    ).first();
+    this.citySelect = page.locator(
+      'select[name*="city" i], select[id*="city" i]'
+    ).first();
+    this.industrySelect = page.locator(
+      'select[name*="industry" i], select[id*="industry" i]'
+    ).first();
+    this.interestSelect = page.locator(
+      'select[name*="interest" i], select[id*="interest" i]'
+    ).first();
+    this.commentsTextarea = page.locator('textarea').first();
+    this.consentCheckbox = page.locator('input[type="checkbox"]').first();
+    this.submitButton = page.locator(
+      'input[type="submit"], button[type="submit"], button:not([type="button"]):not([type="reset"])'
+    ).filter({ hasText: /submit|send|contact|get in touch/i }).first();
+    this.successMessage = page.getByText(/thank you.*submission.*received|successfully submitted/i).first();
+    this.errorMessage = page.getByText(/something went wrong|error.*submitting/i).first();
+  }
+
+  async navigateToContact(): Promise<void> {
+    await this.page.goto(this.url + '/contact/', { waitUntil: 'domcontentloaded' });
+    await this.waitForLoad();
+  }
+
   async findContactForm(): Promise<Locator | null> {
-    // Strategy 1: form whose action URL hints "contact"
     const byAction = this.page.locator('form[action*="contact" i], form[action*="message" i]');
     if (await byAction.count() > 0) return byAction.first();
 
-    // Strategy 2: form containing an email field
     const withEmail = this.page.locator('form').filter({
       has: this.page.locator('input[type="email"], input[name*="email" i]'),
     });
     if (await withEmail.count() > 0) return withEmail.first();
 
-    // Strategy 3: any form at all
     const anyForm = this.page.locator('form').first();
     if (await anyForm.count() > 0) return anyForm;
 
     return null;
   }
 
-  // ── Field inspection ─────────────────────────────────────────────────────────
-
-  /**
-   * Return metadata about each input/textarea/select inside the contact form.
-   */
   async getFormFields(): Promise<FormFieldInfo[]> {
     const form = await this.findContactForm();
     if (!form) return [];
 
-    const inputLocator = form.locator('input:not([type="hidden"]):not([type="submit"]):not([type="button"]), textarea, select');
+    const inputLocator = form.locator(
+      'input:not([type="hidden"]):not([type="submit"]):not([type="button"]), textarea, select'
+    );
     const count = await inputLocator.count();
     const fields: FormFieldInfo[] = [];
 
@@ -65,7 +101,9 @@ export class ContactFormPage extends BasePage {
         (await el.getAttribute('id')) ??
         (await el.getAttribute('placeholder')) ??
         `field-${i}`;
-      const type = (await el.getAttribute('type')) ?? (await el.evaluate<string>((node) => node.tagName.toLowerCase()));
+      const type =
+        (await el.getAttribute('type')) ??
+        (await el.evaluate<string>((node) => node.tagName.toLowerCase()));
       const required =
         (await el.getAttribute('required')) !== null ||
         (await el.getAttribute('aria-required')) === 'true';
@@ -76,9 +114,6 @@ export class ContactFormPage extends BasePage {
     return fields;
   }
 
-  // ── Field presence helpers ───────────────────────────────────────────────────
-
-  /** Returns true if the form contains an email input field. */
   async hasEmailField(): Promise<boolean> {
     const form = await this.findContactForm();
     if (!form) return false;
@@ -88,7 +123,6 @@ export class ContactFormPage extends BasePage {
     return (await emailField.count()) > 0;
   }
 
-  /** Returns true if the form contains a name input field. */
   async hasNameField(): Promise<boolean> {
     const form = await this.findContactForm();
     if (!form) return false;
@@ -98,28 +132,14 @@ export class ContactFormPage extends BasePage {
     return (await nameField.count()) > 0;
   }
 
-  /** Returns true if the form has a submit button. */
   async hasSubmitButton(): Promise<boolean> {
     const form = await this.findContactForm();
     if (!form) return false;
-    const submit = form.locator(
-      'button[type="submit"], input[type="submit"], button:not([type="button"]):not([type="reset"])'
-    ).filter({ hasText: /submit|send|contact|get in touch|reach out/i });
-
-    // Also accept any <button> inside the form (many forms omit type="submit")
-    if (await submit.count() > 0) return true;
 
     const anyButton = form.locator('button, input[type="submit"]');
     return (await anyButton.count()) > 0;
   }
 
-  // ── Form filling (without submission) ────────────────────────────────────────
-
-  /**
-   * Fill form fields with the provided key→value map.
-   * Keys are matched against field name, id, and placeholder attributes.
-   * Does NOT click submit.
-   */
   async fillForm(data: Record<string, string>): Promise<void> {
     const form = await this.findContactForm();
     if (!form) throw new Error('[ContactFormPage] No contact form found on this page.');
@@ -136,19 +156,17 @@ export class ContactFormPage extends BasePage {
     }
   }
 
-  // ── High-level validation ────────────────────────────────────────────────────
-
-  /**
-   * Returns true if a contact form is present and appears to be functional
-   * (has at minimum an email field and a submit button).
-   */
   async validateFormPresence(): Promise<boolean> {
     const form = await this.findContactForm();
     if (!form) return false;
-
     const hasEmail = await this.hasEmailField();
     const hasSubmit = await this.hasSubmitButton();
-
     return hasEmail && hasSubmit;
+  }
+
+  async countSelectFields(): Promise<number> {
+    const form = await this.findContactForm();
+    if (!form) return 0;
+    return form.locator('select').count();
   }
 }

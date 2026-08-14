@@ -2,12 +2,20 @@
  * tests/navigation/nav-links.spec.ts
  *
  * Navigation tests — verify the primary nav is present, all links resolve,
- * mobile menu works, and link text meets accessibility best practices.
+ * mobile menu works, and expected ActiveG nav items are present.
  *
  * Tag: @navigation
  */
 
 import { test, expect } from '@fixtures/site.fixture';
+
+const EXPECTED_NAV_ITEMS = [
+  'Services',
+  'About',
+  'Blog',
+  'Partners',
+  'Contact',
+];
 
 test.describe('Navigation @navigation', () => {
   test.beforeEach(async ({ navigationPage }) => {
@@ -22,9 +30,47 @@ test.describe('Navigation @navigation', () => {
     expect(isVisible, 'A nav / [role="navigation"] element should be visible').toBeTruthy();
   });
 
+  // ── Expected nav items ───────────────────────────────────────────────────────
+
+  test('expected nav items are present @navigation', async ({ navigationPage, siteConfig }) => {
+    const navLinks = await navigationPage.getNavLinks();
+    const navTexts = navLinks.map((l) => l.text.toLowerCase());
+
+    const expectedItems = siteConfig.expectedNavItems.length > 0
+      ? siteConfig.expectedNavItems
+      : EXPECTED_NAV_ITEMS;
+
+    const missingItems: string[] = [];
+    for (const item of expectedItems) {
+      const found = navTexts.some((t) => t.includes(item.toLowerCase()));
+      if (!found) missingItems.push(item);
+    }
+
+    if (missingItems.length > 0) {
+      console.warn(
+        `[navigation] These expected nav items were not found: ${missingItems.join(', ')}\n` +
+        `Available nav items: ${navTexts.join(', ')}`
+      );
+    }
+
+    // At least 50% of expected items should be present
+    expect(
+      missingItems.length,
+      `${missingItems.length} expected nav item(s) not found: ${missingItems.join(', ')}`
+    ).toBeLessThanOrEqual(Math.ceil(expectedItems.length / 2));
+  });
+
+  test('"Contact" nav link is present @navigation', async ({ navigationPage, page }) => {
+    const contactLink = page.locator('nav a, [role="navigation"] a')
+      .filter({ hasText: /^contact$/i })
+      .first();
+    const count = await contactLink.count();
+    expect(count, 'A "Contact" link should be present in the navigation').toBeGreaterThan(0);
+  });
+
   // ── Link reachability ───────────────────────────────────────────────────────
 
-  test('all nav links are reachable (no 404s) @navigation', async ({ navigationPage, siteConfig }) => {
+  test('all nav links are reachable (no 404s) @navigation', async ({ navigationPage }) => {
     const results = await navigationPage.checkAllNavLinksReachable();
 
     if (results.length === 0) {
@@ -35,7 +81,6 @@ test.describe('Navigation @navigation', () => {
     const broken = results.filter((r) => !r.ok && r.status !== 0);
     const unreachable = results.filter((r) => r.status === 0);
 
-    // Log unreachable links as warnings (network issues, not 404s)
     if (unreachable.length > 0) {
       console.warn(
         '[navigation] Could not reach (network):\n' +
@@ -53,7 +98,6 @@ test.describe('Navigation @navigation', () => {
   // ── Mobile nav ──────────────────────────────────────────────────────────────
 
   test('mobile nav menu toggles correctly @navigation', async ({ navigationPage, page }) => {
-    // Switch to mobile viewport
     await page.setViewportSize({ width: 390, height: 844 });
     await navigationPage.navigate();
     await navigationPage.waitForLoad();
@@ -61,7 +105,6 @@ test.describe('Navigation @navigation', () => {
     const toggle = await navigationPage.getMobileMenuToggle();
 
     if (!toggle) {
-      // Site may use a CSS-only responsive nav — pass if nav is already visible
       const navVisible = await navigationPage.isNavVisible();
       expect(
         navVisible,
@@ -70,13 +113,9 @@ test.describe('Navigation @navigation', () => {
       return;
     }
 
-    // Toggle should be visible
     await expect(toggle, 'Mobile menu toggle should be visible').toBeVisible();
-
-    // Open the menu
     await navigationPage.openMobileMenu();
 
-    // After opening, at least one nav link should be visible
     const navLinks = await navigationPage.getNavLinks();
     expect(
       navLinks.length,
@@ -109,7 +148,6 @@ test.describe('Navigation @navigation', () => {
   test('logo links back to homepage @navigation', async ({ page, siteConfig }) => {
     await page.goto(siteConfig.url, { waitUntil: 'domcontentloaded' });
 
-    // Find the site logo — common patterns
     const logoLink = page.locator(
       'a[class*="logo" i], a[aria-label*="home" i], a[aria-label*="logo" i], ' +
       'header a[href="/"], header a[href="' + siteConfig.url + '"]'
@@ -123,7 +161,6 @@ test.describe('Navigation @navigation', () => {
     const href = await logoLink.getAttribute('href');
     expect(href).not.toBeNull();
 
-    // Resolve relative href
     const resolvedHref = new URL(href!, siteConfig.url).toString();
     const siteOrigin = new URL(siteConfig.url).origin;
 
@@ -131,5 +168,44 @@ test.describe('Navigation @navigation', () => {
       resolvedHref.startsWith(siteOrigin),
       `Logo link "${href}" should point to the site homepage (origin: ${siteOrigin})`
     ).toBeTruthy();
+  });
+
+  // ── Product links ───────────────────────────────────────────────────────────
+
+  test('product links (MapEngine, Nash, PowerSync) are navigable @navigation', async ({ page, siteConfig }) => {
+    await page.goto(siteConfig.url, { waitUntil: 'domcontentloaded' });
+
+    const productPaths = ['/mapengine/', '/nash/', '/powersync/'];
+    const unreachable: string[] = [];
+
+    for (const path of productPaths) {
+      try {
+        const response = await page.request.head(siteConfig.url + path, { timeout: 10_000 });
+        if (!response.ok()) {
+          unreachable.push(`${path} → HTTP ${response.status()}`);
+        }
+      } catch {
+        unreachable.push(`${path} → network error`);
+      }
+    }
+
+    expect(
+      unreachable,
+      `Product pages are not reachable:\n${unreachable.join('\n')}`
+    ).toHaveLength(0);
+  });
+
+  // ── Footer links ────────────────────────────────────────────────────────────
+
+  test('footer contains social media links @navigation', async ({ page, siteConfig }) => {
+    await page.goto(siteConfig.url, { waitUntil: 'domcontentloaded' });
+
+    const socialLinks = page.locator('footer a[href*="facebook.com"], footer a[href*="twitter.com"], footer a[href*="linkedin.com"], footer a[href*="x.com"]');
+    const count = await socialLinks.count();
+
+    expect(
+      count,
+      'Footer should contain at least one social media link'
+    ).toBeGreaterThan(0);
   });
 });

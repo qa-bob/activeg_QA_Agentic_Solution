@@ -1,23 +1,32 @@
-﻿{
+{
     "name":  "activeG",
     "url":  "https://www.activeg.com",
-    "description":  "",
-    "industry":  "",
+    "description":  "ActiveG (now part of Naviam) provides ArcGIS and IBM Maximo EAM integration software including MapEngine, Nash Workflows, and PowerSync.",
+    "industry":  "Enterprise Asset Management / GIS Software",
     "hasContactForm":  true,
     "expectedNavItems":  [
-
-                         ],
+        "Services",
+        "MapEngine",
+        "Nash Workflows",
+        "PowerSync",
+        "About",
+        "Blog",
+        "Events",
+        "News",
+        "Partners",
+        "Contact"
+    ],
     "viewports":  [
-                      "desktop",
-                      "mobile",
-                      "tablet"
-                  ],
+        "desktop",
+        "mobile",
+        "tablet"
+    ],
     "skipVisual":  false,
     "skipForms":  false,
     "auth":  {
-                 "required":  false,
-                 "loginUrl":  "",
-                 "username":  "",
-                 "password":  ""
-             }
+        "required":  false,
+        "loginUrl":  "",
+        "username":  "",
+        "password":  ""
+    }
 }

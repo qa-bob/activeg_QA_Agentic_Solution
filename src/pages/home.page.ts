@@ -1,116 +1,111 @@
-/**
- * src/pages/home.page.ts
- *
- * HomePage models the site's root/homepage.
- * Uses semantic and role-based selectors to stay design-agnostic.
- */
-
-import { type Locator } from '@playwright/test';
-import { BasePage } from '@pages/base.page';
+import { type Page, type Locator } from '@playwright/test';
+import { BasePage } from './base.page';
+import type { SiteConfig } from '@config/site-config.types';
 
 export class HomePage extends BasePage {
-  // ── Hero / above-the-fold ───────────────────────────────────────────────────
+  // ── Hero ────────────────────────────────────────────────────────────────────
+  readonly heroHeading: Locator;
+  readonly heroTagline: Locator;
 
-  /**
-   * Return the text content of the hero section.
-   * Tries common hero patterns: <section> with role="banner", first <h1>,
-   * or elements with data-testid="hero".
-   */
-  async getHeroText(): Promise<string> {
-    // Ordered preference: banner landmark → data-testid → first section
-    const candidates = [
-      this.page.getByRole('banner').first(),
-      this.page.locator('[data-testid="hero"]').first(),
-      this.page.locator('section').first(),
-      this.page.locator('header').first(),
-    ];
+  // ── Product cards ────────────────────────────────────────────────────────────
+  readonly productCards: Locator;
+  readonly mapEngineCard: Locator;
+  readonly nashCard: Locator;
+  readonly powerSyncCard: Locator;
 
-    for (const candidate of candidates) {
-      if (await candidate.count() > 0) {
-        const text = await candidate.textContent();
-        if (text && text.trim().length > 0) {
-          return text.trim();
-        }
-      }
-    }
-
-    return '';
-  }
+  // ── Feature sections ─────────────────────────────────────────────────────────
+  readonly syncSection: Locator;
+  readonly visualizeSection: Locator;
+  readonly automateSection: Locator;
+  readonly companyHistorySection: Locator;
+  readonly spatialEamSection: Locator;
 
   // ── CTAs ────────────────────────────────────────────────────────────────────
+  readonly readMoreLink: Locator;
+  readonly primaryCtas: Locator;
 
-  /**
-   * Return all primary call-to-action buttons/links visible on the page.
-   * Looks for <button> and <a> elements styled as buttons, or those
-   * whose text contains common CTA phrases.
-   */
-  async getCTAButtons(): Promise<Locator[]> {
-    const ctaLocator = this.page.locator(
-      'a[class*="btn"], a[class*="button"], a[class*="cta"], ' +
-      'button[class*="primary"], button[class*="cta"], ' +
-      '[role="button"]'
-    );
+  // ── Footer ──────────────────────────────────────────────────────────────────
+  readonly footerPhone: Locator;
+  readonly footerFacebookLink: Locator;
+  readonly footerTwitterLink: Locator;
+  readonly footerSection: Locator;
 
-    const all = await ctaLocator.all();
+  constructor(page: Page, config: SiteConfig) {
+    super(page, config);
 
-    // If CSS class approach yields nothing, fall back to text-match heuristics
-    if (all.length === 0) {
-      const textCta = this.page.locator(
-        'a, button'
-      ).filter({
-        hasText: /get started|try free|sign up|contact us|learn more|request demo/i,
-      });
-      return textCta.all();
-    }
+    this.heroHeading = page.locator('h1').first();
+    this.heroTagline = page.locator('h3').first();
 
-    return all;
+    this.productCards = page.locator(
+      '[class*="card"], [class*="product"], article'
+    ).filter({ hasText: /mapengine|nash|powersync/i });
+
+    this.mapEngineCard = page.locator('a[href*="mapengine"], section, div, article')
+      .filter({ hasText: /mapengine/i }).first();
+    this.nashCard = page.locator('a[href*="nash"], section, div, article')
+      .filter({ hasText: /nash/i }).first();
+    this.powerSyncCard = page.locator('a[href*="powersync"], section, div, article')
+      .filter({ hasText: /powersync/i }).first();
+
+    this.syncSection = page.locator('section, div').filter({ hasText: /^Sync$/i }).first();
+    this.visualizeSection = page.locator('section, div').filter({ hasText: /^Visualize$/i }).first();
+    this.automateSection = page.locator('section, div').filter({ hasText: /^Automate$/i }).first();
+    this.companyHistorySection = page.locator('section, div')
+      .filter({ hasText: /integration since 1997/i }).first();
+    this.spatialEamSection = page.locator('section, div')
+      .filter({ hasText: /spatial eam program/i }).first();
+
+    this.readMoreLink = page.getByRole('link', { name: /read more/i }).first();
+    this.primaryCtas = page.locator('a[href], button').filter({
+      hasText: /get started|contact us|learn more|read more|request/i,
+    });
+
+    this.footerSection = page.locator('footer').first();
+    this.footerPhone = page.locator('footer, [class*="footer"]')
+      .getByText(/\+1.*480.*610|480.*610.*0839/i).first();
+    this.footerFacebookLink = page.locator('a[href*="facebook.com"]').first();
+    this.footerTwitterLink = page.locator('a[href*="twitter.com"], a[href*="x.com"]').first();
   }
 
-  // ── Headings ────────────────────────────────────────────────────────────────
-
-  /**
-   * Return the text of the first <h1> on the page.
-   * Falls back to first <h2> if no <h1> exists (some SPAs render h2 first).
-   */
-  async getMainHeading(): Promise<string> {
-    const h1 = this.page.locator('h1').first();
+  async getHeroText(): Promise<string> {
+    const h1 = this.heroHeading;
     if (await h1.count() > 0) {
       return (await h1.textContent())?.trim() ?? '';
     }
-
-    const h2 = this.page.locator('h2').first();
-    if (await h2.count() > 0) {
-      return (await h2.textContent())?.trim() ?? '';
-    }
-
     return '';
   }
 
-  // ── Load verification ───────────────────────────────────────────────────────
+  async getMainHeading(): Promise<string> {
+    return this.getHeroText();
+  }
 
-  /**
-   * Returns true when key homepage elements are present:
-   *  - A heading exists
-   *  - At least one nav element exists
-   *  - Body has some text content
-   */
+  async getCTAButtons(): Promise<Locator[]> {
+    return this.primaryCtas.all();
+  }
+
   async isLoaded(): Promise<boolean> {
     try {
-      // Heading present
       const headingCount = await this.page.locator('h1, h2').count();
       if (headingCount === 0) return false;
-
-      // Navigation present
       const navCount = await this.page.locator('nav, [role="navigation"]').count();
       if (navCount === 0) return false;
-
-      // Page has meaningful text
       const bodyText = await this.page.evaluate<string>(() => document.body.innerText);
-      if (bodyText.trim().length < 50) return false;
-
-      return true;
+      return bodyText.trim().length > 50;
     } catch {
       return false;
     }
+  }
+
+  async getProductCardLinks(): Promise<{ text: string; href: string }[]> {
+    const links = this.page.locator('a[href*="mapengine"], a[href*="nash"], a[href*="powersync"]');
+    const count = await links.count();
+    const results: { text: string; href: string }[] = [];
+    for (let i = 0; i < count; i++) {
+      const link = links.nth(i);
+      const text = ((await link.textContent()) ?? '').trim();
+      const href = (await link.getAttribute('href')) ?? '';
+      results.push({ text, href });
+    }
+    return results;
   }
 }
