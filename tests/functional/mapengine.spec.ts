@@ -59,10 +59,7 @@ test.describe('MapEngine Product Page @functional', () => {
 
   test('FAQ items are interactable @functional', async ({ mapEnginePage }) => {
     const faqCount = await mapEnginePage.getFaqItemCount();
-    if (faqCount === 0) {
-      console.warn('[mapengine] No FAQ accordion items detected — FAQ may use a different markup pattern');
-      return;
-    }
+    test.skip(faqCount === 0, 'No FAQ accordion items detected');
     expect(faqCount, 'MapEngine FAQ should have at least 3 items').toBeGreaterThanOrEqual(3);
   });
 

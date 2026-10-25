@@ -143,7 +143,7 @@ test.describe('Homepage Functional @functional', () => {
       const src = await images.nth(i).getAttribute('src');
       if (!src || src.startsWith('data:')) continue;
 
-      const isLoaded = await images.nth(i).evaluate<boolean>((img) => {
+      const isLoaded = await images.nth(i).evaluate((img) => {
         const el = img as HTMLImageElement;
         return el.complete && el.naturalWidth > 0;
       });

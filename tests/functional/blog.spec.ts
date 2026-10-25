@@ -38,10 +38,7 @@ test.describe('Blog Page @functional', () => {
 
   test('blog posts have non-empty titles @functional', async ({ blogPage }) => {
     const titles = await blogPage.getPostTitles();
-    if (titles.length === 0) {
-      console.warn('[blog] No post titles found — post markup may use different selectors');
-      return;
-    }
+    test.skip(titles.length === 0, 'No post titles found');
 
     const emptyTitles = titles.filter((t) => t.trim().length === 0);
     expect(

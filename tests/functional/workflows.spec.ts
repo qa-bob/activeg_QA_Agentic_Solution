@@ -71,10 +71,7 @@ test.describe('Nash Workflows Product Page @functional', () => {
 
   test('FAQ items are available @functional', async ({ workflowsPage }) => {
     const faqCount = await workflowsPage.getFaqItemCount();
-    if (faqCount === 0) {
-      console.warn('[workflows] No FAQ accordion items detected — may use a different markup pattern');
-      return;
-    }
+    test.skip(faqCount === 0, 'No FAQ accordion items detected');
     expect(faqCount, 'Workflows FAQ should have at least 3 items').toBeGreaterThanOrEqual(3);
   });
 
