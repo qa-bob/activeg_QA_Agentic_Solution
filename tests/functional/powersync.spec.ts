@@ -80,10 +80,7 @@ test.describe('PowerSync Product Page @functional', () => {
 
   test('FAQ items are available @functional', async ({ powerSyncPage }) => {
     const faqCount = await powerSyncPage.getFaqItemCount();
-    if (faqCount === 0) {
-      console.warn('[powersync] No FAQ accordion items detected — may use a different markup pattern');
-      return;
-    }
+    test.skip(faqCount === 0, 'No FAQ accordion items detected');
     expect(faqCount, 'PowerSync FAQ should have at least 3 items').toBeGreaterThanOrEqual(3);
   });
 
